@@ -114,7 +114,70 @@ class DB_Functions{
 		$color = $data['color'];
 		$course = $data['course'];
 		
-		$result = mysql_query("INSERT INTO event (ev_uname,event_num,event_title,location,s_date,e_date,done_date,all_day,notes,priority,days,color,course) VALUES ('$username','$id','$title','$location','$s_date','$e_date','$done_date','$allDay','$note','$priority','$repeat','$color','$course') ");
+		if($repeat == null){
+			//echo empty($repeat),"<br/>";
+			$result = mysql_query("INSERT INTO event (ev_uname,event_num,event_title,location,s_date,e_date,done_date,all_day,notes,priority,days,color,course) VALUES ('$username','$id','$title','$location','$s_date','$e_date','$done_date','$allDay','$note','$priority','$repeat','$color','$course')") or die('Invalid query: ' . mysql_error());
+		}else{
+			
+			$sDate = new DateTime($s_date);
+			$dDate = new DateTime($done_date);
+			$eDate = new DateTime($e_date);
+			if($done_date == null){
+				$diff = 30;
+			}else{				
+				$diff = (int)date_diff($sDate,$dDate)->format('%a');
+			}	
+			echo $diff, "<br />";
+			$result = mysql_query("INSERT INTO event (ev_uname,event_num,event_title,location,s_date,e_date,done_date,all_day,notes,priority,days,color,course) VALUES ('$username','$id','$title','$location','$s_date','$e_date','$done_date','$allDay','$note','$priority','$repeat','$color','$course')") or die('Invalid query: ' . mysql_error());
+			
+			for($i = 0; $i < $diff;$i++){
+				$sDate = $sDate->add(DateInterval::createFromDateString('1 day'));
+				$eDate = $eDate->add(DateInterval::createFromDateString('1 day'));
+				echo $sDate->format('Y-m-d H:i:s'), "<br />";
+				echo $eDate->format('Y-m-d H:i:s'), "<br />";
+				echo $sDate->format('D'), "<br />";
+				echo "increment of $i", "<br />";
+				switch($sDate->format('D')){
+					case 'Mon':
+						$match = 'M';
+						break;
+					case 'Tue':
+						$match = 'T';
+						break;
+					case 'Wed':
+						$match = 'W';
+						break;
+					case 'Thu':
+						$match = 'R';
+						break;
+					case 'Fri':
+						$match = 'F';
+						break;
+					case 'Sat':
+						$match = 'A';
+						break;
+					case 'Sun':
+						$match = 'S';
+						break;
+				}
+				
+				echo $match, "<br />";
+				echo$repeat, "<br />";
+				if(strpos($repeat,$match) !== false){
+					echo strpos($repeat,$match), "<br />";
+					echo "MATCH_STRING", "<br />";
+					$newEDate = $eDate->format('Y-m-d H:i:s');
+					$newSDate = $sDate->format('Y-m-d H:i:s');
+					$newId = rand();
+					$result = mysql_query("INSERT INTO event (ev_uname,event_num,event_title,location,s_date,e_date,done_date,all_day,notes,priority,days,color,course,super_event_id) VALUES ('$username','$newId','$title','$location','$newSDate','$newEDate','$done_date','$allDay','$note','$priority','$repeat','$color','$course','$id')") or die('Invalid query: ' . mysql_error());
+					if($result){
+						echo "SUCCESS", "<br />";
+					}else{
+						echo "FAIL TO INSERT", "<br />";
+					}
+				}
+			}			
+		}
 		
 		if($result){
 			//get user details
@@ -126,8 +189,6 @@ class DB_Functions{
 		}else{
 			return false;
 		}
-		
-		
 	}
 	
 	//Update user schedule information
@@ -178,6 +239,22 @@ class DB_Functions{
 	//Update user schedule information
 	public function computeSchedule($username,$time){
 		
+	}
+	
+	//Compute the study Time
+	public function computeTime($result){
+		//$name = 'admin';
+		//$id = '3388240525438111101';
+		//$result =  mysql_query("SELECT * FROM event WHERE ev_uname = '$name' and event_num = '$id'")or die('Invalid query: ' . mysql_error());
+		//$result =  mysql_query("SELECT * FROM event WHERE ev_uname = '$name' and course = 1 and super_event_id is null ")or die('Invalid query: ' . mysql_error());
+		$event = @mysql_fetch_array($result);
+		
+		$eDate = new DateTime($event['e_date']);
+		$sDate = new DateTime($event['s_date']);
+		$diff = date_diff($eDate,$sDate);
+		$duration = ($diff->h+$diff->i/60);
+		$newTime = round($duration*2);
+		return $newTime;
 	}
 	
 	//Encrupting password. Returns salt and encrypted password.
