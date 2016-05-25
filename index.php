@@ -117,30 +117,31 @@
 			echo json_encode($response);
 		}
 		
-	}else if($tag == 'compute'){
+	}else if($tag == 'compute_event'){
 		//Request type is add user schedule information
 		$username = $_POST['username'];
-		$time = $_POST['time'];
-		
-		$rset = $db->computeSchedule($username);
+		$time = $_POST['event'];
+		//echo new DateTime();
+		$rset = $db->computeSchedule($username,$time);
 		 //print_r($rset);
-		 $num = count($rset);
+		 //$num = count($rset);
 		 //check for correct user's schedule
 		 if($rset != false){
 			 $response["success"] = 1;
-			 $response["event"] = $rset;
+			 ///$response["event"] = $rset;
 			 echo json_encode($response);
 		 }else{
 			$response["error"] = 1;
             $response["error_msg"] = "JSON Error occured. Cannot Compute the event";
             echo json_encode($response);
 		}	
+		
 	}else if($tag == 'delete_event'){
 		//Request type is add user schedule information
 		$username = $_POST['username'];
-		$JSONEvent = $_POST['event'];
+		$id = $_POST['event'];
 		
-		$rset = $db->deleteSchedule($username,$JSONEvent);
+		$rset = $db->deleteSchedule($username,$id);
 		 //print_r($rset);
 
 		 //check for correct user's schedule
@@ -155,6 +156,62 @@
 		}	
 	}		
  }else{
-	echo "Time Management";
+	echo "Time Management ", "<br />";
+	//$a['id'] = '123';
+	//echo 'study for '.$a['id'];
+	/**
+	//date('D',$date1)
+	//$date1 = new DateTime();
+	$date1 = new DateTime("2016-05-01 09:15:00");
+	$date2 = new DateTime("2016-05-10 10:30:00");
+	//$diff = $date1->diff($date2);
+	$diff = date_diff($date1,$date2);
+	//echo $diff->h+$diff->i/60;
+	echo $diff->format('%a'), "<br />";
+	if((int)$diff->format('%a') < 10)
+		echo "yes";
+	for($i = 1 ; $i < 8;$i++){
+	echo $date1->add(DateInterval::createFromDateString('1 day'))->format('Y-m-d H:i:s'), "<br />";
+		if($date1->format('D') == 'Tue'){
+			echo "yes: ".$i;
+		}
+		echo rand(),"<br />";
+	}
+	echo (string)$date1->format('D'), "<br />";
+	//$letter = "MWF";
+	//$m = "W";
+	//if(strpos($letter,$m)){
+	//	echo "yes", "<br />";
+	//}
+	//ini_set("precision",25);
+	//$id = 4381979113977629696;
+	//$va = 9223372036854775808;
+	//echo $id, "<br />";
+	//echo $va, "<br />";
+	//echo uniqid(rand());
+	//$d = '';
+	//echo empty($d);
+	//$time = '17:00';
+	//$d56 = new DateTime($time);
+	///echo $d56->format('H:i:s'),"<br/>";
+	//if($date2->format('H:i:s')<$d56->format('H:i:s')){
+		
+	//	echo $date2->format('H:i:s'),"<br/>";
+	//	echo $d56->format('H:i:s'),"<br/>";
+	//	echo true,"<br/>";
+	//else{
+	//	echo false;
+	//}
+	//Include Databse handler
+	 //require_once 'include/DB_Functions.php';
+	 //$db = new DB_Functions();
+	//$count = $db->computeTime();
+	//echo $count;
+	//$j = 1.2;
+	//echo round($j);
+	//$k = 2;
+	//echo $date1->setTime($d56->format('H'),$d56->format('i'))->format('Y-m-d H:i:s'),"<br/>";
+	//echo $date1->setTime($d56->format('H')+$k,$d56->format('i'))->format('Y-m-d H:i:s'),"<br/>";
+	*/
  }	
 ?>
