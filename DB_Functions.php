@@ -254,87 +254,118 @@ class DB_Functions{
 		$timeBlock = new DateTime($time);
 		$timeEndOfDay = new DateTime('23:00');
 		$numRows = 0;
-		$result =  mysql_query("SELECT * FROM event WHERE ev_uname = '$username' and course = 1 and super_event_id is null ")or die('Invalid query1: ' . mysql_error());
-		//print_r($result);//test
-		if(mysql_num_rows($result)>0){
-
-			//Check if there is old study schedule
-			$check = $check = mysql_query("SELECT * FROM event WHERE ev_uname = '$username' and course = 0 and super_event_id in (SELECT event_num FROM event where ev_uname = '$username' and course = 1 and super_event_id is null) ")or die('Invalid query2: ' . mysql_error());
-			$numRows = mysql_num_rows($check);
-			
-			if(mysql_num_rows($check) > 0){
-				
-				//Delete all the old study event and create new schedule
-				$oldStudySchedule = mysql_query("DELETE FROM event WHERE ev_uname = '$username' and course = 0 and super_event_id in (SELECT event_num FROM (SELECT event_num FROM event where ev_uname = '$username' and course = 1 and super_event_id is null) as id) ")or die('Invalid query3: ' . mysql_error());
-				if(mysql_affected_rows()>0){	//If successful delete, then update new study schedule
-					while($row = mysql_fetch_assoc($result)){
-						$newEvent = $this->computeTime($row,$timeBlock);
-						$this->insertSchedule($username,$newEvent);
-					}
-					return true;
-				}else{
-					return false; //cannot update new study schedule
-				}
-				
-			}else{	//If there is none any old schedule, create a new one
-				echo "ready  to insert2","<br/>";
-				while($row = mysql_fetch_assoc($result)){
-					$newEvent = $this->computeTime($row,$timeBlock);
-					$this->insertSchedule($username,$newEvent);
-				}
-				return true;
-			}	
-			
-		}else{
+		if($timeBlock->format('H') >= $timeEndOfDay->format('H')){
 			return false;
+		}else{
+			$result =  mysql_query("SELECT * FROM event WHERE ev_uname = '$username' and course = 1 and super_event_id is null Order by s_date desc, priority desc")or die('Invalid query1: ' . mysql_error());
+			//print_r($result);//test
+			$copy = $result;
+			if(mysql_num_rows($result)>0){
+
+				//Check if there is old study schedule
+				$check = $check = mysql_query("SELECT * FROM event WHERE ev_uname = '$username' and course = 0 and super_event_id in (SELECT event_num FROM event where ev_uname = '$username' and course = 1 and super_event_id is null) ")or die('Invalid query2: ' . mysql_error());
+				$numRows = mysql_num_rows($check);
+				
+				if(mysql_num_rows($check) > 0){
+					
+					//Delete all the old study event and create new schedule
+					$oldStudySchedule = mysql_query("DELETE FROM event WHERE ev_uname = '$username' and course = 0 and super_event_id in (SELECT event_num FROM (SELECT event_num FROM event where ev_uname = '$username' and course = 1 and super_event_id is null) as id) ")or die('Invalid query3: ' . mysql_error());
+					if(mysql_affected_rows()>0){	//If successful delete, then update new study schedule
+						
+						$this->computeTime1($copy,$timeBlock,$username);
+						return true;
+					}else{
+						return false; //cannot update new study schedule
+					}
+					
+				}else{	//If there is none any old schedule, create a new one
+					echo "ready  to insert2","<br/>";
+					$this->computeTime1($copy,$timeBlock,$username);
+					return true;
+				}	
+				
+			}else{
+				return false;
+			}
 		}
 	}
+	
 	//Compute the study Time
-	public function computeTime1($event,$timeBlock){
+	public function computeTime1($event,$timeBlock,$username){
 		$copy = $timeBlock;
+		$list = new SplDoublyLinkedList();
+		$list->setIteratorMode(SplDoublyLinkedList::IT_MODE_FIFO);
+		$array = array();
 		while($row = mysql_fetch_assoc($event)){
-			$next = mysql_fetch_assoc($event);
-			while(new DateTime($row['s_date'])->format('Y-m-d') === new DateTime($next['s_date'])->format('Y-m-d')){
-				if($row['priority'] > $next['priority']){					
-					$this->computeTime($row,$copy);
-					$copy = $copy->setTime(new DateTime($row['s_date'])->format('H')
-				}
-			}
-			switch($event['event_num']){
+			$list->push($row);
+			$array[] = $row;
+		}
+		
+		/**$HEAD = $list->bottom();
+		$TAIL = $list->top();
+		$CURRENT = $HEAD;*/
+		$HEAD = $array[0];
+		$TAIL = $array[count($array)-1];
+		$CURRENT = $array[1];;
+		$i = 1;
+		while($i < count($array)+1){
+			//Increase the CURRENT node
+			//$CURRENT = $list->next();
+			
+			$CURRENT = $array[$i++];
+			//$PREVIOUS_VALUE = $HEAD;
+
+			
+			//Compare nodes for same day 
+			if((new DateTime($HEAD['s_date']))->format('Y-m-d') == (new DateTime($CURRENT['s_date']))->format('Y-m-d')){
+				echo "SAME EVENT","<br/>";
+				
+					//Create same priority event
+					if($HEAD['priority'] == $CURRENT['priority']){
+						echo "HERE1","<br/>";
+						$temp1 = $this->computeTime($HEAD,$copy);
+						$this->insertSchedule($username,$temp1);
+						//$this->computeTime($CURRENT,$copy);
+					}
+					//HEAD priority is larger than CURRENT priority
+					if($HEAD['priority'] > $CURRENT['priority'] ){
+						echo "HERE2","<br/>";
+						$temp1 = $this->computeTime($HEAD,$copy);
+						$this->insertSchedule($username,$temp1);	//Insert HEAD
+						$temp2 = json_decode($temp1,true);
+						$newTime = new DateTime($temp2['e_date']);
+						$copy->setTime($newTime->format('H'),$newTime->format('i')+15);
+						//$temp1 = $this->computeTime($CURRENT,$copy);
+						//$this->insertSchedule($username,$temp1);	//Insert CURRENT
+						//$HEAD = $CURRENT;
+					}
+					
+					//HEAD priority is less than CURRENT priority
+					if($HEAD['priority'] < $CURRENT['priority']){
+						echo "HERE3","<br/>";
+						$TEMP = $HEAD;
+						$HEAD = $CURRENT;
+						$temp1 = $this->computeTime($HEAD,$copy);
+						$this->insertSchedule($username,$temp1);
+						$temp2 = json_decode($temp1,true);
+						$newTime = new DateTime($temp2['e_date']);
+						$copy->setTime($newTime->format('H'),$newTime->format('i')+15);
+						//$temp1 = $this->computeTime($HEAD,$copy);
+						//$this->insertSchedule($username,$temp1);
+						$CURRENT = $TEMP;
+					}
+					
+					//Increase the HEAD node
+					//$CURRENT = $array[$i++];
+					$HEAD = $CURRENT;
+			}else{
+				$temp1 = $this->computeTime($HEAD,$copy);
+				$this->insertSchedule($username,$temp1);
+				$HEAD = $CURRENT;
+				$copy = $timeBlock;
 				
 			}
-			$newEvent = $this->computeTime($row,$timeBlock);
 		}
-		$username = $event['ev_uname'];
-		$event['super_event_id'] = $event['event_num'];
-		
-		$eDate = new DateTime($event['e_date']);
-		$sDate = new DateTime($event['s_date']);
-		$diff = date_diff($eDate,$sDate);
-		$duration = ($diff->h+$diff->i/60);
-		$newTime = round($duration*2);
-		
-		/** If there is empty slot after $timeBlock. */
-		
-		//Generat new study event.		
-		$newTitle = 'Study for '.$event['event_title'];
-		$newId = rand();
-		$newSDate = $sDate->setTime($timeBlock->format('H'),$timeBlock->format('i'))->format('Y-m-d H:i:s');
-		$newEDate = $eDate->setTime($timeBlock->format('H')+$newTime,$timeBlock->format('i'))->format('Y-m-d H:i:s');
-		
-		$event['event_title'] = $newTitle;
-		$event['event_num'] = $newId;
-		$event['s_date'] = $newSDate;
-		$event['e_date'] = $newEDate;
-		$event['location'] = '';
-		$event['course'] = 0;
-		
-		
-		print_r($event);
-		$newEvent = json_encode($event);
-		//echo $newEvent;
-		
-		return $newEvent;
 	}
 	
 	//Compute the study Time
